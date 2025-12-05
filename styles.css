@@ -48,7 +48,7 @@ h1 {
   border-radius: 10px;
   border: none;
   font-size: 16px;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
   outline: none;
   transition: 0.3s;
 }
@@ -122,14 +122,6 @@ h1 {
   cursor: pointer;
 }
 
-.todo-text input {
-  width: 100%;
-  padding: 6px;
-  border-radius: 6px;
-  border: none;
-  outline: none;
-}
-
 /* ===== Action Buttons ===== */
 .edit-btn,
 .delete-btn,
@@ -144,31 +136,25 @@ h1 {
   transition: 0.3s;
 }
 
-/* Edit */
 .edit-btn {
   background: linear-gradient(135deg, #38bdf8, #0ea5e9);
 }
-
 .edit-btn:hover {
   transform: scale(1.1);
   box-shadow: 0 0 10px #38bdf8;
 }
 
-/* Delete */
 .delete-btn {
   background: linear-gradient(135deg, #ff4d6d, #e11d48);
 }
-
 .delete-btn:hover {
   transform: scale(1.1);
   box-shadow: 0 0 10px #ff4d6d;
 }
 
-/* Save */
 .save-btn {
   background: linear-gradient(135deg, #22c55e, #16a34a);
 }
-
 .save-btn:hover {
   transform: scale(1.1);
   box-shadow: 0 0 10px #22c55e;
@@ -205,14 +191,8 @@ h1 {
 
 /* ===== Animations ===== */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-15px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(-15px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes shake {
