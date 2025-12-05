@@ -1,27 +1,34 @@
 const $ = id => document.getElementById(id);
 
 const addBtn = $("addBtn");
-const todoInput = $("todoInput");
+const titleInput = $("titleInput");
+const descInput = $("descInput");
+const dueInput = $("dueInput");
 const todoList = $("todoList");
 const pagination = $("pagination");
-const errorBox = document.querySelector(".error-message");
+const errorBox = $("errorMessage");
 
-let todos = []; // локальный массив задач
+let todos = []; // lokalny array z zadaniami
 const itemsPerPage = 3;
 let currentPage = 1;
 
-/* ===== Загрузка задач из Supabase ===== */
+/* ===== Load todos from Supabase ===== */
 loadTodos();
 
 async function loadTodos() {
   try {
     const { data, error } = await supabase
-      .from("whattodoapp")      // <-- твоя таблица
-      .select("id, text")
+      .from("tasks")             // nowa tabela
+      .select("id, title, description, due_date")
       .order("id", { ascending: false });
 
     if (!error && data) {
-      todos = data.map(t => ({ id: t.id, text: t.text }));
+      todos = data.map(t => ({
+        id: t.id,
+        title: t.title,
+        description: t.description,
+        due_date: t.due_date
+      }));
       localStorage.setItem("todos", JSON.stringify(todos));
     } else {
       todos = JSON.parse(localStorage.getItem("todos")) || [];
@@ -29,30 +36,35 @@ async function loadTodos() {
   } catch (e) {
     todos = JSON.parse(localStorage.getItem("todos")) || [];
   }
-
   render();
 }
 
-/* ===== Добавление задачи ===== */
+/* ===== Add new task ===== */
 addBtn.onclick = async () => {
-  const text = todoInput.value.trim();
-  if (!text) return showError("Enter a task");
+  const title = titleInput.value.trim();
+  const description = descInput.value.trim();
+  const due_date = dueInput.value;
 
-  todos.unshift({ text }); // добавляем локально
+  if (!title) return showError("Title is required");
+
+  const newTask = { title, description, due_date };
+  todos.unshift(newTask);
   localStorage.setItem("todos", JSON.stringify(todos));
-  todoInput.value = "";
+  titleInput.value = "";
+  descInput.value = "";
+  dueInput.value = "";
   currentPage = 1;
   render();
 
   try {
     const { data, error } = await supabase
-      .from("whattodoapp")      // <-- твоя таблица
-      .insert([{ text }])
-      .select("id, text")
+      .from("tasks")
+      .insert([newTask])
+      .select("id, title, description, due_date")
       .limit(1);
 
     if (!error && data?.length) {
-      todos[0] = { id: data[0].id, text: data[0].text }; // обновляем id
+      todos[0] = data[0]; // aktualizacja id
       localStorage.setItem("todos", JSON.stringify(todos));
       render();
     }
@@ -61,7 +73,7 @@ addBtn.onclick = async () => {
   }
 };
 
-/* ===== Рендер всех задач ===== */
+/* ===== Render all tasks ===== */
 function render() {
   renderTodos();
   renderPagination();
@@ -75,7 +87,11 @@ function renderTodos() {
     const li = document.createElement("li");
     li.className = "todo-item";
     li.innerHTML = `
-      <span class="todo-text">${escapeHtml(item.text)}</span>
+      <div>
+        <strong>${escapeHtml(item.title)}</strong><br>
+        <small>${escapeHtml(item.description)}</small><br>
+        <em>${item.due_date || ""}</em>
+      </div>
       <button class="edit-btn">Edit</button>
       <button class="delete-btn">Delete</button>
     `;
@@ -87,7 +103,7 @@ function renderTodos() {
   });
 }
 
-/* ===== Пагинация ===== */
+/* ===== Pagination ===== */
 function renderPagination() {
   pagination.innerHTML = "";
   const pages = Math.max(1, Math.ceil(todos.length / itemsPerPage));
@@ -102,29 +118,34 @@ function renderPagination() {
   }
 }
 
-/* ===== Редактирование задачи ===== */
+/* ===== Edit task ===== */
 function editTask(index, li) {
   const item = todos[index];
   li.innerHTML = `
-    <input class="todo-text" value="${escapeHtml(item.text)}">
+    <input class="todo-text" id="editTitle" value="${escapeHtml(item.title)}" placeholder="Title">
+    <input class="todo-text" id="editDesc" value="${escapeHtml(item.description)}" placeholder="Description">
+    <input type="date" class="todo-text" id="editDue" value="${item.due_date || ""}">
     <button class="save-btn">Save</button>
     <button class="delete-btn">Delete</button>
   `;
 
   li.querySelector(".save-btn").onclick = async () => {
-    const value = li.querySelector("input").value.trim();
-    if (!value) return showError("Task cannot be empty");
+    const valueTitle = li.querySelector("#editTitle").value.trim();
+    const valueDesc = li.querySelector("#editDesc").value.trim();
+    const valueDue = li.querySelector("#editDue").value;
 
-    const old = item;
-    todos[index].text = value;
+    if (!valueTitle) return showError("Title cannot be empty");
+
+    const old = { ...item };
+    todos[index] = { ...item, title: valueTitle, description: valueDesc, due_date: valueDue };
     localStorage.setItem("todos", JSON.stringify(todos));
     render();
 
     if (old.id) {
       try {
         await supabase
-          .from("whattodoapp")     // <-- твоя таблица
-          .update({ text: value })
+          .from("tasks")
+          .update({ title: valueTitle, description: valueDesc, due_date: valueDue })
           .eq("id", old.id);
       } catch (e) {
         showError("Saved locally — will sync when online");
@@ -135,23 +156,24 @@ function editTask(index, li) {
   li.querySelector(".delete-btn").onclick = () => deleteTask(index);
 }
 
-/* ===== Удаление задачи ===== */
+/* ===== Delete task ===== */
 async function deleteTask(index) {
   const removed = todos.splice(index, 1)[0];
   localStorage.setItem("todos", JSON.stringify(todos));
+
   if ((currentPage - 1) * itemsPerPage >= todos.length) currentPage = Math.max(1, currentPage - 1);
   render();
 
   if (removed.id) {
     try {
-      await supabase.from("whattodoapp").delete().eq("id", removed.id);
+      await supabase.from("tasks").delete().eq("id", removed.id);
     } catch (e) {
       showError("Deleted locally — will sync when online");
     }
   }
 }
 
-/* ===== Вспомогательные функции ===== */
+/* ===== Helpers ===== */
 function showError(text) {
   errorBox.textContent = text;
   errorBox.style.display = "block";
