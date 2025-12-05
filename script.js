@@ -1,87 +1,59 @@
-const $ = id => document.getElementById(id);
+// === CONFIG SUPABASE ===
+const supabaseUrl = "https://almpaoelubriseebectm.supabase.co";
+const supabaseKey =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsbXBhb2VsdWJyaXNlZWJlY3RtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzkyNDI2NDksImV4cCI6MjA1NDgxODY0OX0.annR0l8tkVcJtgSxW9yeZ8OSZAdR7AzjeJsP5M8kCQM";
 
-const addBtn = $("addBtn");
+const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+const $ = selector => document.getElementById(selector);
+
 const todoInput = $("todoInput");
 const todoDesc = $("todoDesc");
 const todoDeadline = $("todoDeadline");
+const addBtn = $("addBtn");
 const todoList = $("todoList");
-const pagination = $("pagination");
-const errorBox = document.querySelector(".error-message");
+const errorMessage = $("errorMessage");
+const prevPageBtn = $("prevPage");
+const nextPageBtn = $("nextPage");
 
-let todos = [];
-const itemsPerPage = 3;
 let currentPage = 1;
+const itemsPerPage = 5;
+let todos = [];
 
-/* ===== Load Todos ===== */
-loadTodos();
-
-async function loadTodos() {
-  try {
-    const { data, error } = await supabase
-      .from("whattodoapp")
-      .select("id, text, description, deadline")
-      .order("id", { ascending: false });
-
-    if (!error && data) {
-      todos = data;
-      localStorage.setItem("todos", JSON.stringify(todos));
-    }
-  } catch (e) {
-    todos = JSON.parse(localStorage.getItem("todos")) || [];
-  }
-
-  render();
+// === LOAD FROM LOCAL STORAGE ===
+function loadLocal() {
+  const saved = localStorage.getItem("todos");
+  todos = saved ? JSON.parse(saved) : [];
 }
 
-/* ===== Add Task ===== */
-addBtn.onclick = async () => {
-  const text = todoInput.value.trim();
-  const description = todoDesc.value.trim();
-  const deadline = todoDeadline.value || null;
-
-  if (!text) return showError("Enter task title");
-
-  const newTask = { text, description, deadline };
-
-  todos.unshift(newTask);
+// === SAVE TO LOCAL STORAGE ===
+function saveLocal() {
   localStorage.setItem("todos", JSON.stringify(todos));
-
-  todoInput.value = "";
-  todoDesc.value = "";
-  todoDeadline.value = "";
-
-  currentPage = 1;
-  render();
-
-  try {
-    const { data, error } = await supabase
-      .from("whattodoapp")
-      .insert([newTask])
-      .select();
-
-    if (!error && data?.length) {
-      todos[0] = data[0];
-      localStorage.setItem("todos", JSON.stringify(todos));
-      render();
-    }
-  } catch (e) {
-    showError("Saved locally — will sync later");
-  }
-};
-
-/* ===== Render ===== */
-function render() {
-  renderTodos();
-  renderPagination();
 }
 
+// === DISPLAY ERROR ===
+function showError(msg) {
+  errorMessage.innerText = msg;
+  errorMessage.style.display = "block";
+  setTimeout(() => (errorMessage.style.display = "none"), 2000);
+}
+
+// === ESCAPE HTML ===
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// === RENDER LIST ===
 function renderTodos() {
   todoList.innerHTML = "";
   const start = (currentPage - 1) * itemsPerPage;
+  const pageItems = todos.slice(start, start + itemsPerPage);
 
-  todos.slice(start, start + itemsPerPage).forEach((item, i) => {
+  pageItems.forEach((item, index) => {
     const li = document.createElement("li");
-    li.className = "todo-item";
+    li.classList.add("todo-item");
 
     li.innerHTML = `
       <div class="todo-text">
@@ -89,96 +61,73 @@ function renderTodos() {
         <small>${escapeHtml(item.description || "")}</small><br>
         <small>📅 ${item.deadline || "No date"}</small>
       </div>
-
       <button class="edit-btn">Edit</button>
       <button class="delete-btn">Delete</button>
     `;
 
-    li.querySelector(".edit-btn").onclick = () => editTask(start + i, li);
-    li.querySelector(".delete-btn").onclick = () => deleteTask(start + i);
+    // === Edit ===
+    li.querySelector(".edit-btn").addEventListener("click", () => {
+      const newText = prompt("Task:", item.text);
+      const newDesc = prompt("Description:", item.description);
+      const newDeadline = prompt("Deadline (YYYY-MM-DD):", item.deadline);
 
-    todoList.append(li);
+      if (newText) {
+        item.text = newText;
+        item.description = newDesc || "";
+        item.deadline = newDeadline || "";
+        saveLocal();
+        renderTodos();
+      }
+    });
+
+    // === Delete ===
+    li.querySelector(".delete-btn").addEventListener("click", () => {
+      todos.splice(start + index, 1);
+      saveLocal();
+      renderTodos();
+    });
+
+    todoList.appendChild(li);
   });
+
+  prevPageBtn.disabled = currentPage === 1;
+  nextPageBtn.disabled = start + itemsPerPage >= todos.length;
 }
 
-/* ===== Pagination ===== */
-function renderPagination() {
-  pagination.innerHTML = "";
-  const pages = Math.max(1, Math.ceil(todos.length / itemsPerPage));
+// === ADD TASK ===
+addBtn.addEventListener("click", async () => {
+  const text = todoInput.value.trim();
+  const description = todoDesc.value.trim();
+  const deadline = todoDeadline.value || null;
 
-  for (let i = 1; i <= pages; i++) {
-    const btn = document.createElement("button");
-    btn.className = "pagination-btn";
-    btn.textContent = i;
-    btn.disabled = i === currentPage;
-    btn.onclick = () => { currentPage = i; render(); };
-    pagination.append(btn);
+  if (!text) {
+    showError("Write task name first");
+    return;
   }
-}
 
-/* ===== Edit Task ===== */
-function editTask(index, li) {
-  const item = todos[index];
+  const newTask = { text, description, deadline };
+  todos.unshift(newTask);
+  saveLocal();
+  renderTodos();
 
-  li.innerHTML = `
-    <input class="todo-text" value="${escapeHtml(item.text)}">
-    <input class="todo-text" value="${escapeHtml(item.description || "")}">
-    <input type="date" class="todo-text" value="${item.deadline || ""}">
-    <button class="save-btn">Save</button>
-    <button class="delete-btn">Delete</button>
-  `;
+  todoInput.value = "";
+  todoDesc.value = "";
+  todoDeadline.value = "";
 
-  li.querySelector(".save-btn").onclick = async () => {
-    const title = li.querySelectorAll("input")[0].value.trim();
-    const desc = li.querySelectorAll("input")[1].value.trim();
-    const date = li.querySelectorAll("input")[2].value;
+  // === SAVE TO SUPABASE ===
+  await supabase.from("whattodoapp").insert([newTask]);
+});
 
-    if (!title) return showError("Title required");
+// === PAGINATION ===
+prevPageBtn.addEventListener("click", () => {
+  currentPage--;
+  renderTodos();
+});
+nextPageBtn.addEventListener("click", () => {
+  currentPage++;
+  renderTodos();
+});
 
-    const old = item;
-
-    todos[index].text = title;
-    todos[index].description = desc;
-    todos[index].deadline = date;
-
-    localStorage.setItem("todos", JSON.stringify(todos));
-    render();
-
-    if (old.id) {
-      await supabase
-        .from("whattodoapp")
-        .update({ text: title, description: desc, deadline: date })
-        .eq("id", old.id);
-    }
-  };
-
-  li.querySelector(".delete-btn").onclick = () => deleteTask(index);
-}
-
-/* ===== Delete ===== */
-async function deleteTask(index) {
-  const removed = todos.splice(index, 1)[0];
-  localStorage.setItem("todos", JSON.stringify(todos));
-
-  if ((currentPage - 1) * itemsPerPage >= todos.length)
-    currentPage = Math.max(1, currentPage - 1);
-
-  render();
-
-  if (removed.id) {
-    await supabase.from("whattodoapp").delete().eq("id", removed.id);
-  }
-}
-
-/* ===== Helpers ===== */
-function showError(text) {
-  errorBox.textContent = text;
-  errorBox.style.display = "block";
-  setTimeout(() => (errorBox.style.display = "none"), 3000);
-}
-
-function escapeHtml(s) {
-  return s.replace(/[&<>"']/g, c => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  }[c]));
-}
+// === INITIALIZE ===
+loadLocal();
+renderTodos();
