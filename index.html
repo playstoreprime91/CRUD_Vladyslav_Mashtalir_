@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Todo</title>
+
+  <!-- Google Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="container">
+    <header>
+      <h1>✅ Smart Todo</h1>
+      <p class="subtitle">Organize your tasks smartly</p>
+    </header>
+
+    <!-- Error -->
+    <div id="errorMessage" class="error-message"></div>
+
+    <!-- Input -->
+    <section class="input-group">
+      <input 
+        type="text" 
+        id="todoInput" 
+        class="todo-input" 
+        placeholder="What needs to be done?"
+        autocomplete="off"
+      >
+      <button id="addBtn" class="add-btn">Add Task</button>
+    </section>
+
+    <!-- Todo List -->
+    <section class="list-section">
+      <ul id="todoList" class="todo-list"></ul>
+    </section>
+
+    <!-- Pagination -->
+    <footer>
+      <div id="pagination" class="pagination"></div>
+    </footer>
+  </main>
+
+  <!-- Supabase client (CDN) and initialization -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // === Твои параметры Supabase ===
+    const SUPABASE_URL = "https://lpophlzugttsxwoocqhr.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxwb3BobHp1Z3R0c3h3b29jcWhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5MzgyMjMsImV4cCI6MjA4MDUxNDIyM30.DGlVe8ZYAeBQlAeHdkI2UmJKwUgwihX25r5tZ4HdNn8";
+    window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  </script>
+
+  <!-- App script -->
+  <script src="script.js"></script>
+</body>
+</html>
