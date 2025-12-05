@@ -25,13 +25,9 @@
 
     <!-- Input -->
     <section class="input-group">
-      <input 
-        type="text" 
-        id="todoInput" 
-        class="todo-input" 
-        placeholder="What needs to be done?"
-        autocomplete="off"
-      >
+      <input type="text" id="titleInput" placeholder="Task title" class="todo-input" autocomplete="off">
+      <input type="text" id="descInput" placeholder="Description" class="todo-input" autocomplete="off">
+      <input type="date" id="dueInput" class="todo-input">
       <button id="addBtn" class="add-btn">Add Task</button>
     </section>
 
@@ -46,12 +42,11 @@
     </footer>
   </main>
 
-  <!-- Supabase client (CDN) and initialization -->
+  <!-- Supabase client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    // === Твои параметры Supabase ===
-    const SUPABASE_URL = "https://lpophlzugttsxwoocqhr.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxwb3BobHp1Z3R0c3h3b29jcWhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5MzgyMjMsImV4cCI6MjA4MDUxNDIyM30.DGlVe8ZYAeBQlAeHdkI2UmJKwUgwihX25r5tZ4HdNn8";
+    const SUPABASE_URL = "https://lpophlzugttsxwoocqhr.supabase.co"; // podmień na swój URL
+    const SUPABASE_ANON_KEY = "YOUR_ANON_KEY"; // podmień na swój anon key
     window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   </script>
 
