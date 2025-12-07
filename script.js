@@ -1,165 +1,191 @@
-// ===============================
-// KONFIGURACJA SUPABASE
-// ===============================
-const SUPABASE_URL = "https://cmmzhydmdrzujbgpbike.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNtbXpoeWRtZHJ6dWpiZ3BiaWtlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5NDAwOTQsImV4cCI6MjA4MDUxNjA5NH0.NO3xiLd2jV5WrXPoqjeuKxp_R_5EjtuFwctSY1Eym8I";
-const TABLE = "items";
+// ----------- ELEMENTY ----------
+const q = sel => document.querySelector(sel);
+const formSection = q("#form-section");
+const detailSection = q("#detail-section");
+const listInfo = q("#list-info");
+const table = q("#books-table");
+const tbody = q("#books-tbody");
 
-// GŁÓWNA FUNKCJA FETCH
-async function api(path, options = {}) {
-  const r = await fetch(SUPABASE_URL + "/rest/v1" + path, {
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      "Content-Type": "application/json",
-      Prefer: "return=representation"
-    },
-    ...options
-  });
+// ----------- POKAŻ/UKRYJ ----------
+const show = el => el.classList.remove("hidden");
+const hide = el => el.classList.add("hidden");
 
-  let body = null;
-  try { body = await r.json(); } catch {}
+// ----------- CHECKBOX ----------
+const checkbox = q("#confirm-checkbox");
+const btnSave = q("#btn-save");
 
-  return { ok: r.ok, status: r.status, body };
-}
+checkbox.addEventListener("change", () => {
+  btnSave.disabled = !checkbox.checked;
+});
 
-// ===============================
-// CRUD – POPRAWIONE
-// ===============================
-async function getItems() {
-  const r = await api(`/${TABLE}?select=*`);
-  return r.ok ? r.body : [];
-}
+// ----------- ŁADOWANIE LISTY ----------
+async function loadBooks() {
+  listInfo.textContent = "Ładowanie...";
+  hide(table);
 
-async function createItem(data) {
-  const r = await api(`/${TABLE}`, {
-    method: "POST",
-    body: JSON.stringify(data)
-  });
+  const { data, error } = await supabase
+    .from("books")
+    .select("*")
+    .order("id", { ascending: true });
 
-  if (r.ok) return true;
-  console.error("BŁĄD createItem:", r);
-}
-
-async function updateItem(id, data) {
-  const r = await api(`/${TABLE}?id=eq.${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(data)
-  });
-
-  if (r.ok) return true;
-  console.error("BŁĄD updateItem:", r);
-}
-
-async function deleteItem(id) {
-  await api(`/${TABLE}?id=eq.${id}`, { method: "DELETE" });
-}
-
-// ===============================
-// WALIDACJA
-// ===============================
-function validateItem(data) {
-  const e = [];
-  if (!data.title.trim()) e.push("Tytuł jest wymagany.");
-  if (!(data.priority >= 1 && data.priority <= 5))
-    e.push("Priorytet musi być między 1 a 5.");
-  return e;
-}
-
-// ===============================
-// RENDEROWANIE
-// ===============================
-const tableBody = document.querySelector("#items-table tbody");
-
-function renderTable(items) {
-  tableBody.innerHTML = "";
-
-  for (const it of items) {
-    const tr = document.createElement("tr");
-
-    tr.innerHTML = `
-      <td>${it.id}</td>
-      <td>${it.title}</td>
-      <td>${it.description || ""}</td>
-      <td>${it.priority}</td>
-      <td>${it.due_date || ""}</td>
-      <td>${it.done ? "✔" : "✘"}</td>
-      <td>
-        <button class="action edit" data-id="${it.id}">Edytuj</button>
-        <button class="action delete" data-id="${it.id}">Usuń</button>
-      </td>
-    `;
-
-    tableBody.appendChild(tr);
-  }
-
-  attachRowEvents();
-}
-
-function attachRowEvents() {
-  document.querySelectorAll(".edit").forEach(btn =>
-    btn.onclick = async () => {
-      const id = btn.dataset.id;
-      const items = await getItems();
-      const it = items.find(x => x.id == id);
-
-      document.getElementById("item-id").value = it.id;
-      document.getElementById("title").value = it.title;
-      document.getElementById("description").value = it.description || "";
-      document.getElementById("priority").value = it.priority;
-      document.getElementById("due_date").value = it.due_date || "";
-      document.getElementById("done").checked = !!it.done;
-    }
-  );
-
-  document.querySelectorAll(".delete").forEach(btn =>
-    btn.onclick = async () => {
-      await deleteItem(btn.dataset.id);
-      refresh();
-    }
-  );
-}
-
-// ===============================
-// FORMULARZ
-// ===============================
-const form = document.getElementById("item-form");
-
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-
-  const payload = {
-    title: document.getElementById("title").value.trim(),
-    description: document.getElementById("description").value.trim() || null,
-    priority: Number(document.getElementById("priority").value),
-    due_date: document.getElementById("due_date").value || null,
-    done: document.getElementById("done").checked
-  };
-
-  const errors = validateItem(payload);
-  if (errors.length) {
-    alert(errors.join("\n"));
+  if (error) {
+    listInfo.textContent = "Błąd: " + error.message;
     return;
   }
 
-  const id = document.getElementById("item-id").value;
-
-  if (id)
-    await updateItem(id, payload);
-  else
-    await createItem(payload);
-
-  form.reset();
-  document.getElementById("item-id").value = "";
-  refresh();
-});
-
-// ===============================
-// START
-// ===============================
-async function refresh() {
-  const data = await getItems();
-  renderTable(data);
+  renderList(data);
 }
 
-refresh();
+function renderList(items) {
+  tbody.innerHTML = "";
+
+  if (items.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="muted">Brak danych</td></tr>`;
+    show(table);
+    return;
+  }
+
+  items.forEach(b => {
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td>${b.id}</td>
+      <td>${b.title}</td>
+      <td>${b.author ?? ""}</td>
+      <td>${b.pages ?? ""}</td>
+      <td>${b.published_date ?? ""}</td>
+      <td>${b.created_at ? new Date(b.created_at).toLocaleString() : ""}</td>
+      <td>
+        <button class="btn-view" data-id="${b.id}">Pokaż</button>
+        <button class="btn-edit" data-id="${b.id}">Edytuj</button>
+        <button class="btn-delete" data-id="${b.id}">Usuń</button>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll(".btn-view").forEach(btn =>
+    btn.addEventListener("click", e => showDetail(e.target.dataset.id))
+  );
+  tbody.querySelectorAll(".btn-edit").forEach(btn =>
+    btn.addEventListener("click", e => editBook(e.target.dataset.id))
+  );
+  tbody.querySelectorAll(".btn-delete").forEach(btn =>
+    btn.addEventListener("click", e => deleteBook(e.target.dataset.id))
+  );
+
+  show(table);
+}
+
+// ----------- DODAWANIE ----------
+async function createBook(payload) {
+  return await supabase.from("books").insert(payload);
+}
+
+// ----------- AKTUALIZACJA ----------
+async function updateBook(id, payload) {
+  return await supabase.from("books").update(payload).eq("id", id);
+}
+
+// ----------- USUWANIE ----------
+async function deleteBook(id) {
+  if (!confirm("Usunąć rekord?")) return;
+
+  const { error } = await supabase.from("books").delete().eq("id", id);
+  if (error) alert("Błąd: " + error.message);
+
+  loadBooks();
+}
+
+// ----------- SZCZEGÓŁY ----------
+async function showDetail(id) {
+  const { data, error } = await supabase
+    .from("books")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error) return alert("Błąd: " + error.message);
+
+  q("#detail-pre").textContent = JSON.stringify(data, null, 2);
+  show(detailSection);
+}
+
+// ----------- EDYCJA ----------
+async function editBook(id) {
+  const { data, error } = await supabase
+    .from("books")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error) return alert("Błąd: " + error.message);
+
+  q("#book-id").value = data.id;
+  q("#title").value = data.title;
+  q("#author").value = data.author ?? "";
+  q("#pages").value = data.pages ?? "";
+  q("#published_date").value = data.published_date ?? "";
+  checkbox.checked = false;
+  btnSave.disabled = true;
+
+  q("#form-title").textContent = "Edytuj książkę";
+  show(formSection);
+}
+
+// ----------- ZAMKNIĘCIE FORMULARZA ----------
+q("#btn-cancel").addEventListener("click", () => {
+  hide(formSection);
+  q("#book-form").reset();
+  checkbox.checked = false;
+  btnSave.disabled = true;
+});
+
+// ----------- ZAPIS ----------
+q("#book-form").addEventListener("submit", async e => {
+  e.preventDefault();
+
+  const id = q("#book-id").value;
+
+  const payload = {
+    title: q("#title").value.trim(),
+    author: q("#author").value.trim() || null,
+    pages: q("#pages").value ? Number(q("#pages").value) : null,
+    published_date: q("#published_date").value || null
+  };
+
+  let result;
+
+  if (id) {
+    result = await updateBook(id, payload);
+  } else {
+    result = await createBook(payload);
+  }
+
+  if (result.error) {
+    alert("Błąd: " + result.error.message);
+  } else {
+    alert("Zapisano.");
+    hide(formSection);
+    loadBooks();
+  }
+});
+
+// ----------- INICJALIZACJA ----------
+q("#btn-open-add").addEventListener("click", () => {
+  q("#book-form").reset();
+  q("#book-id").value = "";
+  q("#form-title").textContent = "Dodaj książkę";
+  checkbox.checked = false;
+  btnSave.disabled = true;
+  show(formSection);
+});
+
+q("#btn-close-detail").addEventListener("click", () =>
+  hide(detailSection)
+);
+
+q("#btn-refresh").addEventListener("click", loadBooks);
+
+loadBooks();
