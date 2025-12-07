@@ -1,176 +1,274 @@
-/**
- * Frontend SPA (vanilla JS) for "entities" table on Supabase.
- *
- * IMPORTANT: Replace SUPABASE_URL and SUPABASE_ANON_KEY with your project's values.
- * Do NOT commit real anon keys to a public repo — for the lab it's acceptable to keep them here
- * if the repo is private or the instructor requested it.
- *
- * Entity fields (final, A + B):
- * - id (integer, PK)
- * - title (text)         <-- required (A)
- * - amount (numeric)     <-- required (A)
- * - description (text)   <-- optional (A)
- * - created_at (timestamp with time zone, default now) <-- auto (A)
- * - status (text)        <-- added in B (e.g. 'open'/'done')
- * - due_date (date)      <-- added in B
- *
- */
+/* script.js
+   CRUD SPA communicating directly with Supabase PostgREST endpoints.
+   Table name used: "expenses"
+   Validation included.
+*/
 
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-
-// === CONFIG: set your Supabase values here ===
-const SUPABASE_URL = 'https://REPLACE_WITH_YOUR_PROJECT.supabase.co';
-const SUPABASE_ANON_KEY = 'REPLACE_WITH_YOUR_ANON_KEY';
-// =============================================
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const table = 'entities';
-
-const els = {
-  form: document.getElementById('entity-form'),
-  id: document.getElementById('entity-id'),
-  title: document.getElementById('title'),
-  amount: document.getElementById('amount'),
-  description: document.getElementById('description'),
-  due_date: document.getElementById('due_date'),
-  status: document.getElementById('status'),
-  saveBtn: document.getElementById('save-btn'),
-  cancelBtn: document.getElementById('cancel-btn'),
-  refreshBtn: document.getElementById('refresh-btn'),
-  filterInput: document.getElementById('filter-input'),
-  tableBody: document.querySelector('#entities-table tbody'),
-  formTitle: document.getElementById('form-title'),
+const API_BASE = `${SUPABASE_URL}/rest/v1`;
+const TABLE = "expenses";
+const HEADERS = {
+  "Content-Type": "application/json",
+  "apikey": SUPABASE_ANON_KEY,
+  "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+  "Accept": "application/json"
 };
 
-async function fetchEntities() {
-  const filter = els.filterInput.value.trim();
-  let query = supabase.from(table).select('*').order('id', { ascending: true });
-  if (filter) query = query.ilike('title', `%${filter}%`);
-  const { data, error } = await query;
-  if (error) return alert('Błąd fetch: ' + error.message);
-  renderTable(data || []);
+// ---- Helpers ----
+const qs = s => document.querySelector(s);
+const qsa = s => document.querySelectorAll(s);
+const formatDate = (d) => {
+  if (!d) return "";
+  const dt = new Date(d);
+  return dt.toLocaleDateString();
+};
+const isoDate = (d) => {
+  if (!d) return null;
+  const dt = new Date(d);
+  return dt.toISOString().split("T")[0];
+};
+
+const showMessage = (msg) => {
+  // simple console + alert fallback
+  console.log(msg);
+};
+
+// ---- DOM ----
+const form = qs("#expense-form");
+const saveBtn = qs("#save-btn");
+const resetBtn = qs("#reset-btn");
+const tableBody = qs("#expenses-table tbody");
+const emptyDiv = qs("#empty");
+const refreshBtn = qs("#refresh-btn");
+const searchInput = qs("#search");
+const formTitle = qs("#form-title");
+const expenseIdInput = qs("#expense-id");
+const detailModal = qs("#detail-modal");
+const detailBody = qs("#detail-body");
+const closeModalBtn = qs("#close-modal");
+
+// ---- API calls ----
+async function apiFetch(path, opts = {}) {
+  const url = `${API_BASE}${path}`;
+  const res = await fetch(url, { headers: HEADERS, ...opts });
+  // PostgREST returns 2xx for get/insert/update/delete as appropriate.
+  let body = null;
+  const text = await res.text();
+  try { body = text ? JSON.parse(text) : null; } catch (e) { body = text; }
+  return { status: res.status, ok: res.ok, body, headers: res.headers };
 }
 
-function renderTable(items) {
-  els.tableBody.innerHTML = '';
-  for (const it of items) {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${it.id}</td>
-      <td>${escapeHtml(it.title || '')}</td>
-      <td>${it.amount ?? ''}</td>
-      <td>${it.due_date ?? ''}</td>
-      <td>${escapeHtml(it.status || '')}</td>
-      <td>${it.created_at ? new Date(it.created_at).toLocaleString() : ''}</td>
-      <td class="actions">
-        <button data-id="${it.id}" class="edit">Edytuj</button>
-        <button data-id="${it.id}" class="delete">Usuń</button>
-        <button data-id="${it.id}" class="details">Szczegóły</button>
-      </td>
-    `;
-    els.tableBody.appendChild(tr);
+async function listExpenses(search = "") {
+  // GET /expenses?select=*&order=date.desc
+  let filter = `?select=id,title,date,amount,note,created_at&order=date.desc`;
+  if (search) {
+    // ilike in PostgREST
+    filter += `&title=ilike.%25${encodeURIComponent(search)}%25`;
   }
-  // attach handlers
-  document.querySelectorAll('.edit').forEach(b => b.onclick = e => loadForEdit(+e.target.dataset.id));
-  document.querySelectorAll('.delete').forEach(b => b.onclick = e => confirmDelete(+e.target.dataset.id));
-  document.querySelectorAll('.details').forEach(b => b.onclick = e => showDetails(+e.target.dataset.id));
+  return apiFetch(`/${TABLE}${filter}`);
 }
 
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+async function getExpense(id) {
+  return apiFetch(`/${TABLE}?select=*&id=eq.${id}`);
 }
 
-async function loadForEdit(id) {
-  const { data, error } = await supabase.from(table).select('*').eq('id', id).single();
-  if (error) return alert('Błąd pobierania: ' + error.message);
-  const it = data;
-  els.id.value = it.id;
-  els.title.value = it.title ?? '';
-  els.amount.value = it.amount ?? '';
-  els.description.value = it.description ?? '';
-  els.due_date.value = it.due_date ?? '';
-  els.status.value = it.status ?? '';
-  els.formTitle.textContent = 'Edytuj encję #' + it.id;
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+async function createExpense(payload) {
+  // POST - returns created object if prefer=return=representation
+  return apiFetch(`/${TABLE}?return=representation`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
 }
 
+async function updateExpense(id, payload) {
+  // PATCH row by id
+  return apiFetch(`/${TABLE}?id=eq.${id}&return=representation`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+async function deleteExpense(id) {
+  return apiFetch(`/${TABLE}?id=eq.${id}`, { method: "DELETE" });
+}
+
+// ---- UI actions ----
 function clearForm() {
-  els.id.value = '';
-  els.title.value = '';
-  els.amount.value = '';
-  els.description.value = '';
-  els.due_date.value = '';
-  els.status.value = '';
-  els.formTitle.textContent = 'Dodaj nową encję';
+  expenseIdInput.value = "";
+  form.reset();
+  formTitle.textContent = "Dodaj nowy wydatek";
 }
 
-async function confirmDelete(id) {
-  if (!confirm('Na pewno usunąć encję id=' + id + '?')) return;
-  const { error } = await supabase.from(table).delete().eq('id', id);
-  if (error) return alert('Błąd usuwania: ' + error.message);
-  await fetchEntities();
+function fillForm(item) {
+  expenseIdInput.value = item.id;
+  qs("#title").value = item.title || "";
+  qs("#date").value = isoDate(item.date) || "";
+  qs("#amount").value = item.amount ?? "";
+  qs("#note").value = item.note || "";
+  formTitle.textContent = "Edytuj wydatek";
 }
 
-async function showDetails(id) {
-  const { data, error } = await supabase.from(table).select('*').eq('id', id).single();
-  if (error) return alert('Błąd: ' + error.message);
-  const it = data;
-  alert(
-    'Szczegóły (id=' + it.id + ')\n' +
-    'Title: ' + it.title + '\n' +
-    'Amount: ' + it.amount + '\n' +
-    'Description: ' + (it.description || '') + '\n' +
-    'Due date: ' + (it.due_date || '') + '\n' +
-    'Status: ' + (it.status || '') + '\n' +
-    'Created at: ' + (it.created_at || '')
-  );
+function renderRow(item) {
+  const tr = document.createElement("tr");
+  tr.dataset.id = item.id;
+  tr.innerHTML = `
+    <td>${escapeHtml(item.title || "")}</td>
+    <td>${escapeHtml(formatDate(item.date))}</td>
+    <td>${escapeHtml(Number(item.amount).toFixed(2))}</td>
+    <td>${escapeHtml((item.note || "").slice(0,60))}</td>
+    <td class="actions">
+      <button data-action="view">Szczegóły</button>
+      <button data-action="edit">Edytuj</button>
+      <button data-action="delete">Usuń</button>
+    </td>
+  `;
+  return tr;
 }
 
-els.form.onsubmit = async (ev) => {
-  ev.preventDefault();
-  // validation (simple)
-  const title = els.title.value.trim();
-  const amount = Number(els.amount.value);
-  if (!title) return alert('Title wymagane');
-  if (!Number.isFinite(amount)) return alert('Amount musi być liczbą');
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;");
+}
 
-  const payload = {
-    title,
-    amount,
-    description: els.description.value.trim() || null,
-    due_date: els.due_date.value || null,
-    status: els.status.value.trim() || null,
-  };
-
-  if (els.id.value) {
-    // UPDATE
-    const id = Number(els.id.value);
-    const { error } = await supabase.from(table).update(payload).eq('id', id);
-    if (error) return alert('Błąd aktualizacji: ' + error.message);
-    clearForm();
-    await fetchEntities();
-  } else {
-    // CREATE
-    const { error } = await supabase.from(table).insert([payload]);
-    if (error) return alert('Błąd tworzenia: ' + error.message);
-    clearForm();
-    await fetchEntities();
+async function refreshList() {
+  tableBody.innerHTML = "";
+  emptyDiv.style.display = "none";
+  const q = searchInput.value.trim();
+  const res = await listExpenses(q);
+  if (!res.ok) {
+    emptyDiv.textContent = `Błąd pobierania: ${res.status}`;
+    emptyDiv.style.display = "block";
+    return;
   }
-};
-
-els.cancelBtn.onclick = (e) => {
-  clearForm();
-};
-
-els.refreshBtn.onclick = (e) => fetchEntities();
-els.filterInput.oninput = debounce(() => fetchEntities(), 300);
-
-// small util
-function debounce(fn, wait=200){
-  let t;
-  return (...a) => { clearTimeout(t); t = setTimeout(()=>fn(...a), wait); }
+  const rows = Array.isArray(res.body) ? res.body : [];
+  if (rows.length === 0) {
+    emptyDiv.textContent = "Brak rekordów.";
+    emptyDiv.style.display = "block";
+    return;
+  }
+  rows.forEach(r => tableBody.appendChild(renderRow(r)));
 }
 
-// initial load
-fetchEntities();
+// ---- Events ----
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  saveBtn.disabled = true;
+  try {
+    const id = expenseIdInput.value || null;
+    const payload = {
+      title: qs("#title").value.trim(),
+      date: qs("#date").value || null,
+      amount: parseFloat(qs("#amount").value) || 0,
+      note: qs("#note").value.trim()
+    };
+
+    // validation
+    const errors = [];
+    if (!payload.title || payload.title.length < 2) errors.push("Tytuł (min 2 znaki).");
+    if (!payload.date) errors.push("Data jest wymagana.");
+    if (Number.isNaN(payload.amount) || payload.amount === 0) errors.push("Kwota musi być ≠ 0.");
+    if (errors.length) {
+      alert("Błędy walidacji:\n" + errors.join("\n"));
+      return;
+    }
+
+    let res;
+    if (id) {
+      res = await updateExpense(id, payload);
+      if (!res.ok) throw new Error(`Aktualizacja nie powiodła się: ${res.status}`);
+      showMessage("Zaktualizowano.");
+    } else {
+      res = await createExpense(payload);
+      if (!(res.ok || res.status === 201)) throw new Error(`Tworzenie nie powiodło się: ${res.status}`);
+      showMessage("Stworzono.");
+    }
+    clearForm();
+    await refreshList();
+  } catch (err) {
+    alert("Błąd: " + err.message);
+    console.error(err);
+  } finally {
+    saveBtn.disabled = false;
+  }
+});
+
+resetBtn.addEventListener("click", (e) => { clearForm(); });
+
+refreshBtn.addEventListener("click", (e) => refreshList());
+
+searchInput.addEventListener("input", debounce(() => refreshList(), 400));
+
+tableBody.addEventListener("click", async (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  const tr = btn.closest("tr");
+  const id = tr?.dataset?.id;
+  const action = btn.dataset.action;
+  if (!id) return;
+
+  if (action === "view") {
+    const res = await getExpense(id);
+    if (!res.ok) { alert("Błąd pobierania."); return; }
+    const item = Array.isArray(res.body) ? res.body[0] : null;
+    if (!item) { alert("Nie znaleziono rekordu."); return; }
+    showDetail(item);
+  } else if (action === "edit") {
+    const res = await getExpense(id);
+    const item = Array.isArray(res.body) ? res.body[0] : null;
+    if (!item) { alert("Nie znaleziono rekordu."); return; }
+    fillForm(item);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else if (action === "delete") {
+    if (!confirm("Na pewno chcesz usunąć ten rekord?")) return;
+    const res = await deleteExpense(id);
+    if (!res.ok) {
+      alert("Usuwanie nie powiodło się: " + res.status);
+      return;
+    }
+    await refreshList();
+    showMessage("Usunięto.");
+  }
+});
+
+closeModalBtn.addEventListener("click", () => hideModal());
+detailModal.addEventListener("click", (e) => {
+  if (e.target === detailModal) hideModal();
+});
+
+function showDetail(item) {
+  detailBody.innerHTML = `
+    <dl>
+      <dt>ID</dt><dd>${escapeHtml(item.id)}</dd>
+      <dt>Tytuł</dt><dd>${escapeHtml(item.title)}</dd>
+      <dt>Data</dt><dd>${escapeHtml(formatDate(item.date))}</dd>
+      <dt>Kwota</dt><dd>${escapeHtml(Number(item.amount).toFixed(2))} PLN</dd>
+      <dt>Notatka</dt><dd>${escapeHtml(item.note || "")}</dd>
+      <dt>Stworzono</dt><dd>${escapeHtml(item.created_at || "")}</dd>
+    </dl>
+  `;
+  detailModal.classList.remove("hidden");
+}
+
+function hideModal() {
+  detailModal.classList.add("hidden");
+}
+
+// ---- Small utilities ----
+function debounce(fn, wait=300) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(()=> fn.apply(this,args), wait);
+  };
+}
+
+// ---- Initialization ----
+(async function init(){
+  if (!SUPABASE_URL || SUPABASE_URL.includes("REPLACE_WITH")) {
+    alert("Uwaga: w pliku index.html musisz wstawić SUPABASE_URL i SUPABASE_ANON_KEY.");
+  }
+  await refreshList();
+})();
