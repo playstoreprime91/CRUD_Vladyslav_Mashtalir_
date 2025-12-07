@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Encja: Tasks — CRUD (Supabase)</title>
+  <title>Tasks — CRUD (Supabase)</title>
   <link rel="stylesheet" href="styles.css" />
   <!-- Supabase JS CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.27.0/dist/supabase.min.js"></script>
@@ -15,6 +15,7 @@
       <p class="muted">Prosty frontend do zarządzania encją <strong>tasks</strong> (Supabase).</p>
     </header>
 
+    <!-- FORMULARZ DODAWANIA / EDYCJI -->
     <section id="form-section">
       <h2 id="form-title">Dodaj nowe zadanie</h2>
       <form id="task-form">
@@ -46,6 +47,7 @@
       </form>
     </section>
 
+    <!-- LISTA ZADAŃ -->
     <section id="list-section">
       <h2>Lista zadań</h2>
       <div id="controls">
@@ -80,13 +82,12 @@
     </footer>
   </div>
 
-  <!-- IMPORTANT: Wklej swoje wartości Supabase poniżej -->
+  <!-- Supabase config -->
   <script>
-    // ZAMIEN NA SWOJE DANE:
     const SUPABASE_URL = "https://YOUR_SUPABASE_PROJECT.supabase.co";
     const SUPABASE_ANON_KEY = "YOUR_ANON_KEY";
   </script>
 
-  <script src="script.js"></script>
+  <script src="skript.js"></script>
 </body>
 </html>
