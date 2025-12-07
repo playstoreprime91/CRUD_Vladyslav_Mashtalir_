@@ -1,1 +1,89 @@
 
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Encja — CRUD (A+B)</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- TYLKO TU: wstaw swój Supabase URL i anon key -->
+  <script>
+    // Zamień poniższe stringi na wartości z Twojego projektu Supabase.
+    // NIE dodawaj tutaj niczego poza tymi dwoma zmiennymi.
+    const SUPABASE_URL = "https://your-project-ref.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGci...your_anon_key...";
+
+    // Eksport do global scope dla script.js
+    window.SUPABASE = { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY };
+  </script>
+
+  <div class="container">
+    <h1>Encja: `items` — prosty CRUD (A + B)</h1>
+
+    <section id="form-section">
+      <h2>Dodaj / Edytuj item</h2>
+      <form id="item-form">
+        <input type="hidden" id="item-id" />
+        <label>
+          Tytuł (tekst, wymagane)
+          <input id="title" type="text" maxlength="200" required />
+        </label>
+        <label>
+          Opis (tekst)
+          <textarea id="description" maxlength="1000"></textarea>
+        </label>
+        <label>
+          Priorytet (liczba, 1-5)
+          <input id="priority" type="number" min="1" max="5" required />
+        </label>
+        <label>
+          Data realizacji (opcjonalne)
+          <input id="due_date" type="date" />
+        </label>
+        <!-- Pole dodane w etapie B: category (tekst krótszy) -->
+        <label>
+          Kategoria (B) — nowe pole
+          <input id="category" type="text" maxlength="100" />
+        </label>
+
+        <div class="buttons">
+          <button type="submit" id="save-btn">Zapisz</button>
+          <button type="button" id="reset-btn">Wyczyść</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="list-section">
+      <h2>Lista itemów</h2>
+      <div id="controls">
+        <button id="refresh-btn">Odśwież</button>
+      </div>
+      <table id="items-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Tytuł</th>
+            <th>Priorytet</th>
+            <th>Due date</th>
+            <th>Kategoria (B)</th>
+            <th>Akcje</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section id="details-section" class="hidden">
+      <h2>Szczegóły item</h2>
+      <pre id="item-details"></pre>
+      <button id="close-details">Zamknij</button>
+    </section>
+
+    <div id="msg" class="msg"></div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
