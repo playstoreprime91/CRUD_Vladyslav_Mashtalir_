@@ -1,12 +1,8 @@
-// skript.js - vanilla JS + supabase-js
-if (!window.Supabase) {
-  // supabase v2 exposes `Supabase` global via CDN packaging; but we can also access via window.supabase
-}
+// script.js - vanilla JS + Supabase
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const table = "tasks";
 
-const table = "tasks"; // nazwa encji / tabeli
-
-// DOM
+// DOM elements
 const form = document.getElementById("task-form");
 const titleInput = document.getElementById("title");
 const descInput = document.getElementById("description");
@@ -43,68 +39,50 @@ function rowHtml(task){
 }
 function escapeHtml(s){ if (!s) return ""; return s.replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 
-// load list
+// CRUD operations
 async function loadTasks(){
   tasksBody.innerHTML = "";
   showEmpty(false);
   try {
     let query = supabaseClient.from(table).select("*").order("created_at",{ascending:false});
     const q = searchInput.value.trim();
-    if (q){
-      // filter: title ilike
-      query = query.ilike("title", `%${q}%`);
-    }
+    if (q) query = query.ilike("title", `%${q}%`);
     const filter = filterSelect.value;
     if (filter === "pending") query = query.eq("completed", false);
     if (filter === "done") query = query.eq("completed", true);
 
     const { data, error } = await query;
     if (error) throw error;
-    if (!data || data.length === 0){
-      showEmpty(true);
-      return;
-    }
+    if (!data || data.length === 0) return showEmpty(true);
     tasksBody.innerHTML = data.map(rowHtml).join("");
-  } catch (err){
-    console.error(err);
-    alert("Błąd podczas ładowania: " + (err.message || err));
-  }
+  } catch (err){ console.error(err); alert("Błąd podczas ładowania: "+(err.message||err)); }
 }
 
-// create
 async function createTask(payload){
-  // payload: { title, description, priority, due_date, completed }
-  // Basic validation
-  if (!payload.title || payload.title.trim().length < 1) {
-    throw new Error("Tytuł jest wymagany.");
-  }
-  if (!Number.isInteger(payload.priority)) throw new Error("Priorytet musi być liczbą całkowitą.");
+  if (!payload.title) throw new Error("Tytuł jest wymagany.");
+  if (!Number.isInteger(payload.priority)) throw new Error("Priorytet musi być liczbą.");
   const { data, error } = await supabaseClient.from(table).insert([payload]).select().single();
   if (error) throw error;
   return data;
 }
 
-// update
 async function updateTask(id, payload){
   const { data, error } = await supabaseClient.from(table).update(payload).eq("id", id).select().single();
   if (error) throw error;
   return data;
 }
 
-// delete
 async function deleteTask(id){
   const { data, error } = await supabaseClient.from(table).delete().eq("id", id);
   if (error) throw error;
   return data;
 }
 
-// load single
 async function getTask(id){
   const { data, error } = await supabaseClient.from(table).select("*").eq("id", id).maybeSingle();
   if (error) throw error;
   return data;
 }
-
 
 // form submit
 form.addEventListener("submit", async (e)=>{
@@ -118,66 +96,48 @@ form.addEventListener("submit", async (e)=>{
     completed: completedInput.checked
   };
   try {
-    if (!payload.title) { alert("Tytuł jest wymagany."); return; }
-    if (id) {
-      await updateTask(id, payload);
-      alert("Zaktualizowano zadanie.");
-    } else {
-      await createTask(payload);
-      alert("Dodano zadanie.");
-    }
+    if (id) await updateTask(id, payload);
+    else await createTask(payload);
     resetForm();
     await loadTasks();
-  } catch (err) {
-    console.error(err);
-    alert("Błąd zapisu: " + (err.message || err));
-  }
+  } catch(err){ alert("Błąd zapisu: "+(err.message||err)); console.error(err); }
 });
 
-cancelBtn.addEventListener("click", (e)=>{
-  resetForm();
-});
-
+cancelBtn.addEventListener("click", resetForm);
 function resetForm(){
-  idInput.value="";
+  idInput.value = "";
   formTitle.innerText = "Dodaj nowe zadanie";
   form.reset();
   priorityInput.value = 3;
 }
 
-// table actions (delegation)
+// table actions
 tasksBody.addEventListener("click", async (e)=>{
   const btn = e.target.closest("button");
   if (!btn) return;
   const action = btn.dataset.action;
   const tr = btn.closest("tr");
-  const id = tr ? tr.dataset.id : null;
+  const id = tr.dataset.id;
   if (!id) return;
 
-  if (action === "view") {
-    try {
-      const t = await getTask(id);
-      alert(`Szczegóły:\n\nTytuł: ${t.title}\nOpis: ${t.description || ""}\nPriorytet: ${t.priority}\nData: ${t.due_date ? new Date(t.due_date).toLocaleString() : ""}\nWykonane: ${t.completed ? "Tak" : "Nie"}`);
-    } catch (err){ alert("Błąd pobierania szczegółów."); console.error(err); }
-  } else if (action === "edit") {
-    try {
-      const t = await getTask(id);
-      idInput.value = t.id;
-      titleInput.value = t.title || "";
-      descInput.value = t.description || "";
-      priorityInput.value = t.priority ?? 3;
-      dueDateInput.value = t.due_date ? new Date(t.due_date).toISOString().slice(0,10) : "";
-      completedInput.checked = !!t.completed;
-      formTitle.innerText = "Edytuj zadanie";
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (err){ alert("Błąd pobierania do edycji."); console.error(err); }
-  } else if (action === "delete") {
-    if (!confirm("Na pewno usunąć to zadanie?")) return;
-    try {
+  if (action==="view"){
+    const t = await getTask(id);
+    alert(`Szczegóły:\nTytuł: ${t.title}\nOpis: ${t.description||""}\nPriorytet: ${t.priority}\nData: ${t.due_date ? new Date(t.due_date).toLocaleString() : ""}\nWykonane: ${t.completed?"Tak":"Nie"}`);
+  } else if(action==="edit"){
+    const t = await getTask(id);
+    idInput.value = t.id;
+    titleInput.value = t.title||"";
+    descInput.value = t.description||"";
+    priorityInput.value = t.priority??3;
+    dueDateInput.value = t.due_date ? new Date(t.due_date).toISOString().slice(0,10) : "";
+    completedInput.checked = !!t.completed;
+    formTitle.innerText = "Edytuj zadanie";
+    window.scrollTo({top:0,behavior:"smooth"});
+  } else if(action==="delete"){
+    if(confirm("Na pewno usunąć to zadanie?")){
       await deleteTask(id);
-      alert("Usunięto.");
       await loadTasks();
-    } catch (err) { alert("Błąd usuwania."); console.error(err); }
+    }
   }
 });
 
@@ -186,10 +146,9 @@ searchInput.addEventListener("input", debounce(loadTasks, 400));
 filterSelect.addEventListener("change", loadTasks);
 refreshBtn.addEventListener("click", loadTasks);
 
-// simple debounce
 function debounce(fn, ms){
   let t;
-  return function(...a){ clearTimeout(t); t = setTimeout(()=>fn(...a), ms); }
+  return function(...args){ clearTimeout(t); t = setTimeout(()=>fn(...args), ms);}
 }
 
 // initial
