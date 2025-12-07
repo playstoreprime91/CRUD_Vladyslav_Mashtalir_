@@ -1,88 +1,62 @@
-
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Encja — CRUD (A+B)</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aplikacja A + B</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- TYLKO TU: wstaw swój Supabase URL i anon key -->
-  <script>
-    // Zamień poniższe stringi na wartości z Twojego projektu Supabase.
-    // NIE dodawaj tutaj niczego poza tymi dwoma zmiennymi.
-    const SUPABASE_URL = "https://cmmzhydmdrzujbgpbike.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNtbXpoeWRtZHJ6dWpiZ3BiaWtlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5NDAwOTQsImV4cCI6MjA4MDUxNjA5NH0.NO3xiLd2jV5WrXPoqjeuKxp_R_5EjtuFwctSY1Eym8I";
 
-    // Eksport do global scope dla script.js
-    window.SUPABASE = { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY };
-  </script>
+  <h1>Lista zadań (Supabase)</h1>
 
-  <div class="container">
-    <h1>Encja: `items` — prosty CRUD (A + B)</h1>
+  <form id="item-form">
+    <input type="hidden" id="item-id" />
 
-    <section id="form-section">
-      <h2>Dodaj / Edytuj item</h2>
-      <form id="item-form">
-        <input type="hidden" id="item-id" />
-        <label>
-          Tytuł (tekst, wymagane)
-          <input id="title" type="text" maxlength="200" required />
-        </label>
-        <label>
-          Opis (tekst)
-          <textarea id="description" maxlength="1000"></textarea>
-        </label>
-        <label>
-          Priorytet (liczba, 1-5)
-          <input id="priority" type="number" min="1" max="5" required />
-        </label>
-        <label>
-          Data realizacji (opcjonalne)
-          <input id="due_date" type="date" />
-        </label>
-        <!-- Pole dodane w etapie B: category (tekst krótszy) -->
-        <label>
-          Kategoria (B) — nowe pole
-          <input id="category" type="text" maxlength="100" />
-        </label>
+    <label>
+      Tytuł*
+      <input id="title" type="text" required />
+    </label>
 
-        <div class="buttons">
-          <button type="submit" id="save-btn">Zapisz</button>
-          <button type="button" id="reset-btn">Wyczyść</button>
-        </div>
-      </form>
-    </section>
+    <label>
+      Opis
+      <textarea id="description"></textarea>
+    </label>
 
-    <section id="list-section">
-      <h2>Lista itemów</h2>
-      <div id="controls">
-        <button id="refresh-btn">Odśwież</button>
-      </div>
-      <table id="items-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Tytuł</th>
-            <th>Priorytet</th>
-            <th>Due date</th>
-            <th>Kategoria (B)</th>
-            <th>Akcje</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </section>
+    <label>
+      Priorytet (1–5)*
+      <input id="priority" type="number" min="1" max="5" required />
+    </label>
 
-    <section id="details-section" class="hidden">
-      <h2>Szczegóły item</h2>
-      <pre id="item-details"></pre>
-      <button id="close-details">Zamknij</button>
-    </section>
+    <label>
+      Termin wykonania
+      <input id="due_date" type="date" />
+    </label>
 
-    <div id="msg" class="msg"></div>
-  </div>
+    <label class="checkbox-row">
+      <input id="done" type="checkbox" />
+      Wykonane (B)
+    </label>
+
+    <button type="submit">Zapisz</button>
+  </form>
+
+  <hr />
+
+  <table id="items-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Tytuł</th>
+        <th>Opis</th>
+        <th>Priorytet</th>
+        <th>Termin</th>
+        <th>Wykonane</th>
+        <th>Akcje</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
   <script src="script.js"></script>
 </body>
