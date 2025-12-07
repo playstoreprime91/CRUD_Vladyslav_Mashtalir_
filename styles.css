@@ -1,0 +1,56 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f4f4;
+  margin: 0;
+  padding: 20px;
+}
+
+.container {
+  max-width: 900px;
+  margin: auto;
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+}
+
+h1, h2 {
+  margin-top: 0;
+}
+
+.actions {
+  margin-bottom: 20px;
+}
+
+button {
+  padding: 6px 12px;
+  margin-right: 5px;
+}
+
+.hidden {
+  display: none;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+table th, table td {
+  border: 1px solid #ccc;
+  padding: 8px;
+}
+
+.muted {
+  color: #666;
+}
+
+.checkbox-area {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-actions {
+  margin-top: 15px;
+}
